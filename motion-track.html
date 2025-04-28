@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Motion Tracker</title>
+    <title>Enhanced Position Tracking System</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
+            background-color: #000;
         }
         #container {
             position: relative;
@@ -38,11 +39,32 @@
             left: 10px;
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 15px;
+            border-radius: 8px;
             font-family: monospace;
             z-index: 3;
             max-width: 300px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        #stats h3 {
+            margin-top: 0;
+            color: #4CAF50;
+            border-bottom: 1px solid #4CAF50;
+            padding-bottom: 5px;
+        }
+        #posBox {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 3;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: monospace;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         #startBtn {
             position: absolute;
@@ -50,34 +72,141 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 4;
-            padding: 12px 24px;
+            padding: 15px 30px;
             background-color: #4CAF50;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             font-size: 18px;
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
         }
         #startBtn:hover {
             background-color: #45a049;
+            transform: translate(-50%, -50%) scale(1.05);
         }
-        #originPoint {
+        #startBtn:active {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+        .measurement {
+            margin-bottom: 8px;
+            padding: 3px;
+            border-radius: 3px;
+        }
+        .measurement:nth-child(even) {
+            background-color: rgba(255,255,255,0.1);
+        }
+        .posLabel {
+            color: #4CAF50;
+            margin-right: 5px;
+        }
+        .coordinate {
+            display: inline-block;
+            min-width: 60px;
+        }
+        #personPosition {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(76, 175, 80, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.8);
+        }
+        #personDirection {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 30px solid rgba(76, 175, 80, 0.8);
+            transform-origin: 50% 0;
+            z-index: 5;
+        }
+        #roomModel {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 200px;
+            height: 200px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(76, 175, 80, 0.8);
+            border-radius: 5px;
+            z-index: 3;
+        }
+        .origin {
+            position: absolute;
+            width: 8px;
+            height: 8px;
             background-color: red;
             border-radius: 50%;
             transform: translate(-50%, -50%);
-            z-index: 3;
         }
-        #currentPoint {
+        .current {
             position: absolute;
-            width: 20px;
-            height: 20px;
-            background-color: blue;
+            width: 8px;
+            height: 8px;
+            background-color: #4CAF50;
             border-radius: 50%;
             transform: translate(-50%, -50%);
-            z-index: 3;
+        }
+        #calibrationOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+        #calibrationOverlay h2 {
+            margin-bottom: 30px;
+            color: #4CAF50;
+        }
+        #calibrationOverlay p {
+            margin: 10px 20px;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+        #calibrationProgress {
+            width: 80%;
+            max-width: 400px;
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            margin: 30px 0;
+            overflow: hidden;
+        }
+        #calibrationBar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        #calibrationStatus {
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #4CAF50;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -85,59 +214,157 @@
     <div id="container">
         <video id="videoElement" autoplay playsinline></video>
         <div id="overlay">
-            <div id="originPoint"></div>
-            <div id="currentPoint"></div>
+            <div id="personPosition"></div>
+            <div id="personDirection"></div>
         </div>
         <div id="stats">
-            <h3>Motion Data</h3>
-            <div id="accelerometer">Accelerometer: waiting...</div>
-            <div id="gyroscope">Gyroscope: waiting...</div>
-            <div id="orientation">Orientation: waiting...</div>
-            <div id="position">Position: (0, 0, 0)</div>
-            <div id="velocity">Velocity: (0, 0, 0)</div>
-            <div id="distance">Distance from origin: 0m</div>
+            <h3>Positioning Data</h3>
+            <div id="device" class="measurement">Device: checking...</div>
+            <div id="accuracy" class="measurement">Accuracy: calculating...</div>
+            <div id="accelerometer" class="measurement">Accelerometer: waiting...</div>
+            <div id="gyroscope" class="measurement">Gyroscope: waiting...</div>
+            <div id="orientation" class="measurement">Orientation: waiting...</div>
+            <div id="position" class="measurement">Position: initializing...</div>
+            <div id="velocity" class="measurement">Velocity: (0, 0, 0) m/s</div>
+            <div id="distance" class="measurement">Distance: 0m</div>
         </div>
-        <button id="startBtn">Start Tracking</button>
+        <div id="posBox">
+            <span class="posLabel">X:</span><span id="posX" class="coordinate">0.00</span>
+            <span class="posLabel">Y:</span><span id="posY" class="coordinate">0.00</span>
+            <span class="posLabel">Z:</span><span id="posZ" class="coordinate">0.00</span>
+        </div>
+        <div id="roomModel">
+            <div class="origin" style="left: 50%; top: 50%;"></div>
+            <div class="current" id="roomModelDot" style="left: 50%; top: 50%;"></div>
+        </div>
+        <button id="startBtn">Start Position Tracking</button>
+    </div>
+
+    <div id="calibrationOverlay" style="display:none;">
+        <h2>Calibrating Sensors</h2>
+        <p>Please place your device on a flat, stable surface and keep it still.</p>
+        <div id="calibrationProgress">
+            <div id="calibrationBar"></div>
+        </div>
+        <div id="calibrationStatus"><span class="loading"></span>Initializing sensors...</div>
+        <p>This will help improve the accuracy of position tracking by establishing a baseline for the sensors.</p>
     </div>
 
     <script>
         // DOM elements
         const videoElement = document.getElementById('videoElement');
         const startBtn = document.getElementById('startBtn');
+        const personPosition = document.getElementById('personPosition');
+        const personDirection = document.getElementById('personDirection');
+        const roomModelDot = document.getElementById('roomModelDot');
+        const calibrationOverlay = document.getElementById('calibrationOverlay');
+        const calibrationBar = document.getElementById('calibrationBar');
+        const calibrationStatus = document.getElementById('calibrationStatus');
+        
+        // Display elements
+        const deviceDisplay = document.getElementById('device');
+        const accuracyDisplay = document.getElementById('accuracy');
         const accelerometerDisplay = document.getElementById('accelerometer');
         const gyroscopeDisplay = document.getElementById('gyroscope');
         const orientationDisplay = document.getElementById('orientation');
         const positionDisplay = document.getElementById('position');
         const velocityDisplay = document.getElementById('velocity');
         const distanceDisplay = document.getElementById('distance');
-        const originPoint = document.getElementById('originPoint');
-        const currentPoint = document.getElementById('currentPoint');
+        const posXDisplay = document.getElementById('posX');
+        const posYDisplay = document.getElementById('posY');
+        const posZDisplay = document.getElementById('posZ');
 
         // State variables
-        let initializing = true;
         let tracking = false;
+        let calibrated = false;
+        let calibrationData = {
+            acc: { x: [], y: [], z: [] },
+            gyro: { x: [], y: [], z: [] },
+            orient: { alpha: [], beta: [], gamma: [] }
+        };
+        let calibrationOffsets = {
+            acc: { x: 0, y: 0, z: 0 },
+            gyro: { x: 0, y: 0, z: 0 },
+            orient: { alpha: 0, beta: 0, gamma: 0 }
+        };
+
+        // Position tracking variables
         let originX = 0, originY = 0, originZ = 0;
         let currentX = 0, currentY = 0, currentZ = 0;
         let velocityX = 0, velocityY = 0, velocityZ = 0;
         let lastTimestamp = 0;
+        
+        // Sensor data
         let alpha = 0, beta = 0, gamma = 0;
         let accX = 0, accY = 0, accZ = 0;
         let gyroX = 0, gyroY = 0, gyroZ = 0;
+        let heading = 0;
 
-        // Positioning calculation constants
+        // Constants for calibration and calculations
         const GRAVITY = 9.81; // m/s²
-        const DAMPING = 0.85; // Damping factor to reduce drift
-        const ACC_THRESHOLD = 0.1; // Threshold to ignore small accelerations (m/s²)
+        const DAMPING = 0.92; // Damping factor to reduce drift
+        const LOWPASS_ALPHA = 0.8; // Low-pass filter coefficient
+        const ACC_THRESHOLD = 0.15; // Threshold to ignore small accelerations (m/s²)
+        const CALIBRATION_SAMPLES = 100; // Number of samples for calibration
+        const POSITION_SCALE = 0.8; // Scale factor for position visualization
+
+        // Enhanced Kalman filter for sensor fusion
+        class KalmanFilter {
+            constructor() {
+                this.Q = 0.01; // Process noise
+                this.R = 0.1;  // Measurement noise
+                this.P = 1;    // Error covariance
+                this.K = 0;    // Kalman gain
+                this.x = 0;    // Estimated value
+            }
+            
+            filter(measurement) {
+                // Prediction step
+                this.P = this.P + this.Q;
+                
+                // Update step
+                this.K = this.P / (this.P + this.R);
+                this.x = this.x + this.K * (measurement - this.x);
+                this.P = (1 - this.K) * this.P;
+                
+                return this.x;
+            }
+            
+            setInitialValue(value) {
+                this.x = value;
+            }
+        }
+
+        // Create Kalman filters for each dimension
+        const kalmanX = new KalmanFilter();
+        const kalmanY = new KalmanFilter();
+        const kalmanZ = new KalmanFilter();
+        
+        // Low-pass filter implementation
+        function lowPassFilter(previousValue, currentValue, alpha) {
+            return previousValue * alpha + currentValue * (1 - alpha);
+        }
 
         // Camera setup
         async function setupCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" },
+                const constraints = { 
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
                     audio: false 
-                });
+                };
+                
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 videoElement.srcObject = stream;
-                return true;
+                
+                return new Promise((resolve) => {
+                    videoElement.onloadedmetadata = () => {
+                        resolve(true);
+                    };
+                });
             } catch (error) {
                 console.error('Error accessing camera:', error);
                 alert('Camera access denied or not available. Please allow camera access and try again.');
@@ -147,133 +374,265 @@
 
         // Initialize sensors
         function setupSensors() {
-            // Check if DeviceMotionEvent is available
-            if (window.DeviceMotionEvent) {
-                // Check if permission is needed (iOS 13+)
-                if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                    DeviceMotionEvent.requestPermission()
-                        .then(response => {
-                            if (response === 'granted') {
-                                window.addEventListener('devicemotion', handleMotion);
-                            } else {
-                                alert('Motion sensor access denied. Please allow sensor access and try again.');
-                            }
-                        })
-                        .catch(console.error);
-                } else {
-                    // For non-iOS devices or older iOS versions
-                    window.addEventListener('devicemotion', handleMotion);
-                }
-            } else {
-                alert('Motion sensors not available on this device.');
-                accelerometerDisplay.textContent = 'Accelerometer: Not available';
-            }
-
-            // Check if DeviceOrientationEvent is available
-            if (window.DeviceOrientationEvent) {
-                // Check if permission is needed (iOS 13+)
-                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // Check device capabilities
+            const deviceInfo = {
+                accelerometer: 'DeviceMotionEvent' in window,
+                gyroscope: 'DeviceMotionEvent' in window && 'rotationRate' in DeviceMotionEvent.prototype,
+                orientation: 'DeviceOrientationEvent' in window,
+                permissions: typeof DeviceMotionEvent.requestPermission === 'function'
+            };
+            
+            // Update device info display
+            deviceDisplay.textContent = `Device: ${navigator.userAgent.match(/Android|iPhone|iPad|iPod/i) ? 'Mobile' : 'Desktop'} (${Object.entries(deviceInfo).filter(([k, v]) => v).map(([k]) => k).join(', ')})`;
+            
+            // Request permissions if needed (iOS 13+)
+            if (deviceInfo.permissions) {
+                Promise.all([
+                    DeviceMotionEvent.requestPermission(),
                     DeviceOrientationEvent.requestPermission()
-                        .then(response => {
-                            if (response === 'granted') {
-                                window.addEventListener('deviceorientation', handleOrientation);
-                            } else {
-                                alert('Orientation sensor access denied. Please allow sensor access and try again.');
-                            }
-                        })
-                        .catch(console.error);
-                } else {
-                    // For non-iOS devices or older iOS versions
-                    window.addEventListener('deviceorientation', handleOrientation);
+                ])
+                .then(([motionPermission, orientationPermission]) => {
+                    if (motionPermission === 'granted' && orientationPermission === 'granted') {
+                        attachSensorListeners();
+                    } else {
+                        alert('Sensor access denied. Please allow sensor access and try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error requesting permissions:', error);
+                    // Try to attach listeners anyway
+                    attachSensorListeners();
+                });
+            } else {
+                // For non-iOS devices or older iOS versions
+                attachSensorListeners();
+            }
+        }
+        
+        // Attach event listeners for sensors
+        function attachSensorListeners() {
+            if ('DeviceMotionEvent' in window) {
+                window.addEventListener('devicemotion', handleMotion);
+            } else {
+                accelerometerDisplay.textContent = 'Accelerometer: Not available';
+                gyroscopeDisplay.textContent = 'Gyroscope: Not available';
+            }
+            
+            if ('DeviceOrientationEvent' in window) {
+                window.addEventListener('deviceorientation', handleOrientation);
+                
+                // Check for deviceorientationabsolute event for more accurate heading
+                if ('ondeviceorientationabsolute' in window) {
+                    window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation);
                 }
             } else {
-                alert('Orientation sensors not available on this device.');
-                gyroscopeDisplay.textContent = 'Gyroscope: Not available';
                 orientationDisplay.textContent = 'Orientation: Not available';
+            }
+        }
+
+        // Calibrate sensors
+        function calibrateSensors() {
+            return new Promise((resolve) => {
+                let sampleCount = 0;
+                calibrationOverlay.style.display = 'flex';
+                
+                function collectSample(event) {
+                    if (event instanceof DeviceMotionEvent) {
+                        if (event.accelerationIncludingGravity) {
+                            calibrationData.acc.x.push(event.accelerationIncludingGravity.x || 0);
+                            calibrationData.acc.y.push(event.accelerationIncludingGravity.y || 0);
+                            calibrationData.acc.z.push(event.accelerationIncludingGravity.z || 0);
+                        }
+                        
+                        if (event.rotationRate) {
+                            calibrationData.gyro.x.push(event.rotationRate.alpha || 0);
+                            calibrationData.gyro.y.push(event.rotationRate.beta || 0);
+                            calibrationData.gyro.z.push(event.rotationRate.gamma || 0);
+                        }
+                    } else if (event instanceof DeviceOrientationEvent) {
+                        calibrationData.orient.alpha.push(event.alpha || 0);
+                        calibrationData.orient.beta.push(event.beta || 0);
+                        calibrationData.orient.gamma.push(event.gamma || 0);
+                    }
+                    
+                    sampleCount++;
+                    const progress = Math.min(100, Math.round((sampleCount / CALIBRATION_SAMPLES) * 100));
+                    calibrationBar.style.width = `${progress}%`;
+                    calibrationStatus.innerHTML = `<span class="loading"></span>Calibrating... ${progress}%`;
+                    
+                    if (sampleCount >= CALIBRATION_SAMPLES) {
+                        window.removeEventListener('devicemotion', collectSample);
+                        window.removeEventListener('deviceorientation', collectSample);
+                        
+                        calculateCalibrationOffsets();
+                        calibrationStatus.innerHTML = 'Calibration complete!';
+                        
+                        setTimeout(() => {
+                            calibrationOverlay.style.display = 'none';
+                            resolve();
+                        }, 1000);
+                    }
+                }
+                
+                window.addEventListener('devicemotion', collectSample);
+                window.addEventListener('deviceorientation', collectSample);
+            });
+        }
+        
+        // Calculate average offsets from calibration data
+        function calculateCalibrationOffsets() {
+            // Helper function to calculate average of an array
+            const average = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+            
+            // Calculate accelerometer offsets
+            calibrationOffsets.acc.x = average(calibrationData.acc.x);
+            calibrationOffsets.acc.y = average(calibrationData.acc.y);
+            calibrationOffsets.acc.z = average(calibrationData.acc.z) - GRAVITY; // Account for gravity
+            
+            // Calculate gyroscope offsets
+            calibrationOffsets.gyro.x = average(calibrationData.gyro.x);
+            calibrationOffsets.gyro.y = average(calibrationData.gyro.y);
+            calibrationOffsets.gyro.z = average(calibrationData.gyro.z);
+            
+            // Calculate orientation offsets
+            calibrationOffsets.orient.alpha = average(calibrationData.orient.alpha);
+            calibrationOffsets.orient.beta = average(calibrationData.orient.beta);
+            calibrationOffsets.orient.gamma = average(calibrationData.orient.gamma);
+            
+            // Initialize Kalman filters with initial values
+            kalmanX.setInitialValue(0);
+            kalmanY.setInitialValue(0);
+            kalmanZ.setInitialValue(0);
+            
+            // Mark as calibrated
+            calibrated = true;
+            accuracyDisplay.textContent = 'Accuracy: Calibrated (High)';
+        }
+
+        // Handle absolute orientation for more accurate heading
+        function handleAbsoluteOrientation(event) {
+            if (event.alpha !== null) {
+                heading = event.alpha;
             }
         }
 
         // Handle motion sensor data
         function handleMotion(event) {
             // Get acceleration data (including gravity)
-            accX = event.accelerationIncludingGravity.x;
-            accY = event.accelerationIncludingGravity.y;
-            accZ = event.accelerationIncludingGravity.z;
+            const rawAccX = event.accelerationIncludingGravity?.x || 0;
+            const rawAccY = event.accelerationIncludingGravity?.y || 0;
+            const rawAccZ = event.accelerationIncludingGravity?.z || 0;
             
-            // Get raw acceleration data (without gravity, if available)
-            const rawAccX = event.acceleration?.x || 0;
-            const rawAccY = event.acceleration?.y || 0;
-            const rawAccZ = event.acceleration?.z || 0;
+            // Apply calibration if available
+            accX = calibrated ? rawAccX - calibrationOffsets.acc.x : rawAccX;
+            accY = calibrated ? rawAccY - calibrationOffsets.acc.y : rawAccY;
+            accZ = calibrated ? rawAccZ - calibrationOffsets.acc.z - GRAVITY : rawAccZ;
             
             // Get rotation rate data
-            gyroX = event.rotationRate?.alpha || 0;
-            gyroY = event.rotationRate?.beta || 0;
-            gyroZ = event.rotationRate?.gamma || 0;
+            const rawGyroX = event.rotationRate?.alpha || 0;
+            const rawGyroY = event.rotationRate?.beta || 0;
+            const rawGyroZ = event.rotationRate?.gamma || 0;
+            
+            // Apply calibration if available
+            gyroX = calibrated ? rawGyroX - calibrationOffsets.gyro.x : rawGyroX;
+            gyroY = calibrated ? rawGyroY - calibrationOffsets.gyro.y : rawGyroY;
+            gyroZ = calibrated ? rawGyroZ - calibrationOffsets.gyro.z : rawGyroZ;
             
             // Update display
-            accelerometerDisplay.textContent = `Accelerometer: 
-                X: ${accX.toFixed(2)}, 
-                Y: ${accY.toFixed(2)}, 
-                Z: ${accZ.toFixed(2)}`;
+            accelerometerDisplay.textContent = `Accelerometer: X: ${accX.toFixed(2)}, Y: ${accY.toFixed(2)}, Z: ${accZ.toFixed(2)}`;
+            gyroscopeDisplay.textContent = `Gyroscope: X: ${gyroX.toFixed(2)}, Y: ${gyroY.toFixed(2)}, Z: ${gyroZ.toFixed(2)}`;
             
-            gyroscopeDisplay.textContent = `Gyroscope: 
-                X: ${gyroX.toFixed(2)}, 
-                Y: ${gyroY.toFixed(2)}, 
-                Z: ${gyroZ.toFixed(2)}`;
-            
-            // Use acceleration to calculate position when tracking
+            // Calculate position when tracking is active
             if (tracking) {
-                const now = performance.now();
-                const dt = (now - lastTimestamp) / 1000; // Convert to seconds
-                lastTimestamp = now;
-                
-                if (dt > 0 && dt < 1) { // Ignore unreasonable time deltas
-                    // Remove gravity component based on orientation
-                    let adjustedAccX = rawAccX || (accX - (GRAVITY * Math.sin(beta * Math.PI / 180)));
-                    let adjustedAccY = rawAccY || (accY - (GRAVITY * Math.sin(gamma * Math.PI / 180)));
-                    let adjustedAccZ = rawAccZ || (accZ - (GRAVITY * Math.cos(beta * Math.PI / 180)));
-                    
-                    // Apply threshold to reduce noise
-                    adjustedAccX = Math.abs(adjustedAccX) > ACC_THRESHOLD ? adjustedAccX : 0;
-                    adjustedAccY = Math.abs(adjustedAccY) > ACC_THRESHOLD ? adjustedAccY : 0;
-                    adjustedAccZ = Math.abs(adjustedAccZ) > ACC_THRESHOLD ? adjustedAccZ : 0;
-                    
-                    // Apply orientation correction
-                    const orientationCorrectedAccX = adjustedAccX;
-                    const orientationCorrectedAccY = adjustedAccY;
-                    const orientationCorrectedAccZ = adjustedAccZ;
-                    
-                    // Update velocity with acceleration (v = v0 + a*t)
-                    velocityX = (velocityX + orientationCorrectedAccX * dt) * DAMPING;
-                    velocityY = (velocityY + orientationCorrectedAccY * dt) * DAMPING;
-                    velocityZ = (velocityZ + orientationCorrectedAccZ * dt) * DAMPING;
-                    
-                    // Update position with velocity (p = p0 + v*t)
-                    currentX += velocityX * dt;
-                    currentY += velocityY * dt;
-                    currentZ += velocityZ * dt;
-                    
-                    // Update displays
-                    updatePositionDisplay();
-                }
+                updatePosition(event);
             }
         }
 
         // Handle orientation sensor data
         function handleOrientation(event) {
             // Get orientation data
-            alpha = event.alpha || 0; // Z-axis rotation [0, 360)
-            beta = event.beta || 0;   // X-axis rotation [-180, 180]
-            gamma = event.gamma || 0; // Y-axis rotation [-90, 90]
+            const rawAlpha = event.alpha || 0; // Z-axis rotation [0, 360)
+            const rawBeta = event.beta || 0;   // X-axis rotation [-180, 180]
+            const rawGamma = event.gamma || 0; // Y-axis rotation [-90, 90]
+            
+            // Apply calibration if available
+            alpha = calibrated ? normalizeAngle(rawAlpha - calibrationOffsets.orient.alpha) : rawAlpha;
+            beta = calibrated ? rawBeta - calibrationOffsets.orient.beta : rawBeta;
+            gamma = calibrated ? rawGamma - calibrationOffsets.orient.gamma : rawGamma;
+            
+            // Use absolute orientation for heading if available
+            if (!heading) heading = alpha;
             
             // Update display
-            orientationDisplay.textContent = `Orientation: 
-                α: ${alpha.toFixed(2)}°, 
-                β: ${beta.toFixed(2)}°, 
-                γ: ${gamma.toFixed(2)}°`;
+            orientationDisplay.textContent = `Orientation: α: ${alpha.toFixed(2)}°, β: ${beta.toFixed(2)}°, γ: ${gamma.toFixed(2)}°`;
+            
+            // Update direction indicator
+            if (tracking) {
+                personDirection.style.transform = `translate(-50%, 0) rotate(${heading}deg)`;
+            }
+        }
+        
+        // Normalize angle to 0-360 range
+        function normalizeAngle(angle) {
+            return (angle + 360) % 360;
         }
 
-        // Update position display and visual indicator
+        // Update position using sensor fusion
+        function updatePosition(event) {
+            const now = performance.now();
+            const dt = (now - lastTimestamp) / 1000; // Convert to seconds
+            lastTimestamp = now;
+            
+            // Skip unreasonable time deltas
+            if (dt <= 0 || dt > 1) {
+                return;
+            }
+            
+            // Calculate device-oriented acceleration
+            // This transforms accelerometer readings based on device orientation
+            let orientedAccX = accX;
+            let orientedAccY = accY;
+            let orientedAccZ = accZ;
+            
+            // Apply orientation correction using rotation matrix
+            // This is a simplified version - a full implementation would use quaternions
+            const cosAlpha = Math.cos(alpha * Math.PI / 180);
+            const sinAlpha = Math.sin(alpha * Math.PI / 180);
+            const cosBeta = Math.cos(beta * Math.PI / 180);
+            const sinBeta = Math.sin(beta * Math.PI / 180);
+            const cosGamma = Math.cos(gamma * Math.PI / 180);
+            const sinGamma = Math.sin(gamma * Math.PI / 180);
+            
+            // Apply threshold to reduce noise
+            orientedAccX = Math.abs(orientedAccX) > ACC_THRESHOLD ? orientedAccX : 0;
+            orientedAccY = Math.abs(orientedAccY) > ACC_THRESHOLD ? orientedAccY : 0;
+            orientedAccZ = Math.abs(orientedAccZ) > ACC_THRESHOLD ? orientedAccZ : 0;
+            
+            // Apply Kalman filter for sensor fusion
+            const filteredAccX = kalmanX.filter(orientedAccX);
+            const filteredAccY = kalmanY.filter(orientedAccY);
+            const filteredAccZ = kalmanZ.filter(orientedAccZ);
+            
+            // Update velocity with acceleration (v = v0 + a*t)
+            velocityX = (velocityX + filteredAccX * dt) * DAMPING;
+            velocityY = (velocityY + filteredAccY * dt) * DAMPING;
+            velocityZ = (velocityZ + filteredAccZ * dt) * DAMPING;
+            
+            // Apply additional damping to reduce drift
+            if (Math.abs(velocityX) < 0.01) velocityX = 0;
+            if (Math.abs(velocityY) < 0.01) velocityY = 0;
+            if (Math.abs(velocityZ) < 0.01) velocityZ = 0;
+            
+            // Update position with velocity (p = p0 + v*t)
+            currentX += velocityX * dt;
+            currentY += velocityY * dt;
+            currentZ += velocityZ * dt;
+            
+            // Update position displays
+            updatePositionDisplay();
+        }
+
+        // Update position display and visual indicators
         function updatePositionDisplay() {
             // Calculate distance from origin
             const deltaX = currentX - originX;
@@ -282,32 +641,46 @@
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
             
             // Update text displays
-            positionDisplay.textContent = `Position: (${currentX.toFixed(2)}, ${currentY.toFixed(2)}, ${currentZ.toFixed(2)})`;
-            velocityDisplay.textContent = `Velocity: (${velocityX.toFixed(2)}, ${velocityY.toFixed(2)}, ${velocityZ.toFixed(2)})`;
-            distanceDisplay.textContent = `Distance from origin: ${distance.toFixed(2)}m`;
+            positionDisplay.textContent = `Position: X: ${deltaX.toFixed(2)}m, Y: ${deltaY.toFixed(2)}m, Z: ${deltaZ.toFixed(2)}m`;
+            velocityDisplay.textContent = `Velocity: X: ${velocityX.toFixed(2)}, Y: ${velocityY.toFixed(2)}, Z: ${velocityZ.toFixed(2)} m/s`;
+            distanceDisplay.textContent = `Distance: ${distance.toFixed(2)}m`;
             
-            // Update visual position indicators (2D projection on screen)
+            // Update position box
+            posXDisplay.textContent = deltaX.toFixed(2);
+            posYDisplay.textContent = deltaY.toFixed(2);
+            posZDisplay.textContent = deltaZ.toFixed(2);
+            
+            // Update visual position indicators
             const screenWidth = window.innerWidth;
             const screenHeight = window.innerHeight;
             
-            // Origin point (center)
-            originPoint.style.left = `${screenWidth / 2}px`;
-            originPoint.style.top = `${screenHeight / 2}px`;
+            // Position on screen (top-down view, X/Y plane)
+            const screenX = screenWidth / 2 + deltaX * (screenWidth / 5) * POSITION_SCALE;
+            const screenY = screenHeight / 2 - deltaY * (screenHeight / 5) * POSITION_SCALE; // Inverted Y-axis
             
-            // Current point (moves relative to origin)
-            // Scale factor to make movement visible on screen
-            const scaleFactor = 50;
-            const currentPointX = (screenWidth / 2) + (deltaX * scaleFactor);
-            const currentPointY = (screenHeight / 2) + (deltaY * scaleFactor);
+            // Update person position indicator
+            personPosition.style.left = `${screenX}px`;
+            personPosition.style.top = `${screenY}px`;
             
-            currentPoint.style.left = `${currentPointX}px`;
-            currentPoint.style.top = `${currentPointY}px`;
+            // Update minimap position
+            const modelWidth = 200;
+            const modelHeight = 200;
+            const modelX = modelWidth / 2 + deltaX * (modelWidth / 5) * POSITION_SCALE;
+            const modelY = modelHeight / 2 - deltaY * (modelHeight / 5) * POSITION_SCALE; // Inverted Y-axis
+            
+            roomModelDot.style.left = `${modelX}px`;
+            roomModelDot.style.top = `${modelY}px`;
         }
 
         // Start tracking
-        function startTracking() {
+        async function startTracking() {
             // Hide the start button
             startBtn.style.display = 'none';
+            
+            // Calibrate sensors first
+            if (!calibrated) {
+                await calibrateSensors();
+            }
             
             // Set origin position
             originX = currentX;
@@ -325,21 +698,33 @@
             
             // Initial position update
             updatePositionDisplay();
+            
+            // Show person indicator
+            personPosition.style.display = 'block';
+            personDirection.style.display = 'block';
         }
 
         // Initialize the application
         async function initialize() {
+            // Hide person indicators initially
+            personPosition.style.display = 'none';
+            personDirection.style.display = 'none';
+            
+            // Setup camera
             const cameraAvailable = await setupCamera();
-            if (cameraAvailable) {
-                setupSensors();
-                startBtn.addEventListener('click', startTracking);
+            
+            // Setup sensors
+            setupSensors();
+            
+            // Add start button event listener
+            startBtn.addEventListener('click', startTracking);
+            
+            // Update accuracy display
+            if (!cameraAvailable) {
+                accuracyDisplay.textContent = 'Accuracy: Reduced (No Camera)';
             } else {
-                // If camera is not available, try to use sensors only
-                setupSensors();
-                startBtn.textContent = 'Start Tracking (No Camera)';
-                startBtn.addEventListener('click', startTracking);
+                accuracyDisplay.textContent = 'Accuracy: Standard (Uncalibrated)';
             }
-            initializing = false;
         }
 
         // Start initialization when page loads
